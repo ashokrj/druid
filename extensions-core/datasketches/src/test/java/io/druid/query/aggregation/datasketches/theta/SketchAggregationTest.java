@@ -19,6 +19,7 @@
 
 package io.druid.query.aggregation.datasketches.theta;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -29,7 +30,7 @@ import com.yahoo.sketches.theta.Sketch;
 import com.yahoo.sketches.theta.Sketches;
 import io.druid.data.input.MapBasedRow;
 import io.druid.data.input.Row;
-import io.druid.granularity.QueryGranularity;
+import io.druid.granularity.QueryGranularities;
 import io.druid.query.Result;
 import io.druid.query.aggregation.AggregationTestHelper;
 import io.druid.query.aggregation.AggregatorFactory;
@@ -45,6 +46,7 @@ import org.junit.rules.TemporaryFolder;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -71,27 +73,82 @@ public class SketchAggregationTest
         readFileFromClasspathAsString("simple_test_data_record_parser.json"),
         readFileFromClasspathAsString("simple_test_data_aggregators.json"),
         0,
-        QueryGranularity.NONE,
+        QueryGranularities.NONE,
         5,
         readFileFromClasspathAsString("simple_test_data_group_by_query.json")
     );
 
     List<Row> results = Sequences.toList(seq, Lists.<Row>newArrayList());
-    Assert.assertEquals(1, results.size());
+    Assert.assertEquals(5, results.size());
     Assert.assertEquals(
-        new MapBasedRow(
-            DateTime.parse("2014-10-19T00:00:00.000Z"),
-            ImmutableMap
-                .<String, Object>builder()
-                .put("sketch_count", 50.0)
-                .put("sketchEstimatePostAgg", 50.0)
-                .put("sketchUnionPostAggEstimate", 50.0)
-                .put("sketchIntersectionPostAggEstimate", 50.0)
-                .put("sketchAnotBPostAggEstimate", 0.0)
-                .put("non_existing_col_validation", 0.0)
-                .build()
+        ImmutableList.of(
+            new MapBasedRow(
+                DateTime.parse("2014-10-19T00:00:00.000Z"),
+                ImmutableMap
+                    .<String, Object>builder()
+                    .put("product", "product_3")
+                    .put("sketch_count", 38.0)
+                    .put("sketchEstimatePostAgg", 38.0)
+                    .put("sketchUnionPostAggEstimate", 38.0)
+                    .put("sketchIntersectionPostAggEstimate", 38.0)
+                    .put("sketchAnotBPostAggEstimate", 0.0)
+                    .put("non_existing_col_validation", 0.0)
+                    .build()
+            ),
+            new MapBasedRow(
+                DateTime.parse("2014-10-19T00:00:00.000Z"),
+                ImmutableMap
+                    .<String, Object>builder()
+                    .put("product", "product_1")
+                    .put("sketch_count", 42.0)
+                    .put("sketchEstimatePostAgg", 42.0)
+                    .put("sketchUnionPostAggEstimate", 42.0)
+                    .put("sketchIntersectionPostAggEstimate", 42.0)
+                    .put("sketchAnotBPostAggEstimate", 0.0)
+                    .put("non_existing_col_validation", 0.0)
+                    .build()
+            ),
+            new MapBasedRow(
+                DateTime.parse("2014-10-19T00:00:00.000Z"),
+                ImmutableMap
+                    .<String, Object>builder()
+                    .put("product", "product_2")
+                    .put("sketch_count", 42.0)
+                    .put("sketchEstimatePostAgg", 42.0)
+                    .put("sketchUnionPostAggEstimate", 42.0)
+                    .put("sketchIntersectionPostAggEstimate", 42.0)
+                    .put("sketchAnotBPostAggEstimate", 0.0)
+                    .put("non_existing_col_validation", 0.0)
+                    .build()
+            ),
+            new MapBasedRow(
+                DateTime.parse("2014-10-19T00:00:00.000Z"),
+                ImmutableMap
+                    .<String, Object>builder()
+                    .put("product", "product_4")
+                    .put("sketch_count", 42.0)
+                    .put("sketchEstimatePostAgg", 42.0)
+                    .put("sketchUnionPostAggEstimate", 42.0)
+                    .put("sketchIntersectionPostAggEstimate", 42.0)
+                    .put("sketchAnotBPostAggEstimate", 0.0)
+                    .put("non_existing_col_validation", 0.0)
+                    .build()
+            ),
+            new MapBasedRow(
+                DateTime.parse("2014-10-19T00:00:00.000Z"),
+                ImmutableMap
+                    .<String, Object>builder()
+                    .put("product", "product_5")
+                    .put("sketch_count", 42.0)
+                    .put("sketchEstimatePostAgg", 42.0)
+                    .put("sketchUnionPostAggEstimate", 42.0)
+                    .put("sketchIntersectionPostAggEstimate", 42.0)
+                    .put("sketchAnotBPostAggEstimate", 0.0)
+                    .put("non_existing_col_validation", 0.0)
+                    .build()
+            )
         ),
-        results.get(0)
+        results
     );
   }
 
@@ -110,7 +167,7 @@ public class SketchAggregationTest
         readFileFromClasspathAsString("simple_test_data_record_parser.json"),
         readFileFromClasspathAsString("simple_test_data_aggregators.json"),
         0,
-        QueryGranularity.NONE,
+        QueryGranularities.NONE,
         5000,
         readFileFromClasspathAsString("select_query.json")
     );
@@ -118,7 +175,7 @@ public class SketchAggregationTest
     Result<SelectResultValue> result = (Result<SelectResultValue>) Iterables.getOnlyElement(Sequences.toList(seq, Lists.newArrayList()));
     Assert.assertEquals(new DateTime("2014-10-20T00:00:00.000Z"), result.getTimestamp());
     Assert.assertEquals(100, result.getValue().getEvents().size());
-    Assert.assertEquals("AgMDAAAazJMBAAAAAACAPzz9j7pWTMdR", result.getValue().getEvents().get(0).getEvent().get("pty_country"));
+    Assert.assertEquals("AgMDAAAazJMCAAAAAACAPzz9j7pWTMdROWGf15uY1nI=", result.getValue().getEvents().get(0).getEvent().get("pty_country"));
   }
 
   @Test
@@ -129,7 +186,7 @@ public class SketchAggregationTest
         readFileFromClasspathAsString("sketch_test_data_record_parser.json"),
         readFileFromClasspathAsString("sketch_test_data_aggregators.json"),
         0,
-        QueryGranularity.NONE,
+        QueryGranularities.NONE,
         5,
         readFileFromClasspathAsString("sketch_test_data_group_by_query.json")
     );
@@ -170,27 +227,82 @@ public class SketchAggregationTest
         + "  }"
         + "]",
         0,
-        QueryGranularity.NONE,
+        QueryGranularities.NONE,
         5,
         readFileFromClasspathAsString("simple_test_data_group_by_query.json")
     );
 
     List<Row> results = Sequences.toList(seq, Lists.<Row>newArrayList());
-    Assert.assertEquals(1, results.size());
+    Assert.assertEquals(5, results.size());
     Assert.assertEquals(
-        new MapBasedRow(
-            DateTime.parse("2014-10-19T00:00:00.000Z"),
-            ImmutableMap
-                .<String, Object>builder()
-                .put("sketch_count", 50.0)
-                .put("sketchEstimatePostAgg", 50.0)
-                .put("sketchUnionPostAggEstimate", 50.0)
-                .put("sketchIntersectionPostAggEstimate", 50.0)
-                .put("sketchAnotBPostAggEstimate", 0.0)
-                .put("non_existing_col_validation", 0.0)
-                .build()
+        ImmutableList.of(
+            new MapBasedRow(
+                DateTime.parse("2014-10-19T00:00:00.000Z"),
+                ImmutableMap
+                    .<String, Object>builder()
+                    .put("product", "product_3")
+                    .put("sketch_count", 38.0)
+                    .put("sketchEstimatePostAgg", 38.0)
+                    .put("sketchUnionPostAggEstimate", 38.0)
+                    .put("sketchIntersectionPostAggEstimate", 38.0)
+                    .put("sketchAnotBPostAggEstimate", 0.0)
+                    .put("non_existing_col_validation", 0.0)
+                    .build()
+            ),
+            new MapBasedRow(
+                DateTime.parse("2014-10-19T00:00:00.000Z"),
+                ImmutableMap
+                    .<String, Object>builder()
+                    .put("product", "product_1")
+                    .put("sketch_count", 42.0)
+                    .put("sketchEstimatePostAgg", 42.0)
+                    .put("sketchUnionPostAggEstimate", 42.0)
+                    .put("sketchIntersectionPostAggEstimate", 42.0)
+                    .put("sketchAnotBPostAggEstimate", 0.0)
+                    .put("non_existing_col_validation", 0.0)
+                    .build()
+            ),
+            new MapBasedRow(
+                DateTime.parse("2014-10-19T00:00:00.000Z"),
+                ImmutableMap
+                    .<String, Object>builder()
+                    .put("product", "product_2")
+                    .put("sketch_count", 42.0)
+                    .put("sketchEstimatePostAgg", 42.0)
+                    .put("sketchUnionPostAggEstimate", 42.0)
+                    .put("sketchIntersectionPostAggEstimate", 42.0)
+                    .put("sketchAnotBPostAggEstimate", 0.0)
+                    .put("non_existing_col_validation", 0.0)
+                    .build()
+            ),
+            new MapBasedRow(
+                DateTime.parse("2014-10-19T00:00:00.000Z"),
+                ImmutableMap
+                    .<String, Object>builder()
+                    .put("product", "product_4")
+                    .put("sketch_count", 42.0)
+                    .put("sketchEstimatePostAgg", 42.0)
+                    .put("sketchUnionPostAggEstimate", 42.0)
+                    .put("sketchIntersectionPostAggEstimate", 42.0)
+                    .put("sketchAnotBPostAggEstimate", 0.0)
+                    .put("non_existing_col_validation", 0.0)
+                    .build()
+            ),
+            new MapBasedRow(
+                DateTime.parse("2014-10-19T00:00:00.000Z"),
+                ImmutableMap
+                    .<String, Object>builder()
+                    .put("product", "product_5")
+                    .put("sketch_count", 42.0)
+                    .put("sketchEstimatePostAgg", 42.0)
+                    .put("sketchUnionPostAggEstimate", 42.0)
+                    .put("sketchIntersectionPostAggEstimate", 42.0)
+                    .put("sketchAnotBPostAggEstimate", 0.0)
+                    .put("non_existing_col_validation", 0.0)
+                    .build()
+            )
         ),
-        results.get(0)
+        results
     );
   }
 
@@ -271,6 +383,38 @@ public class SketchAggregationTest
             )
         )
     );
+  }
+
+  @Test
+  public void testCacheKey()
+  {
+    final SketchMergeAggregatorFactory factory1 = new SketchMergeAggregatorFactory(
+        "name",
+        "fieldName",
+        16,
+        null,
+        null,
+        null
+    );
+    final SketchMergeAggregatorFactory factory2 = new SketchMergeAggregatorFactory(
+        "name",
+        "fieldName",
+        16,
+        null,
+        null,
+        null
+    );
+    final SketchMergeAggregatorFactory factory3 = new SketchMergeAggregatorFactory(
+        "name",
+        "fieldName",
+        32,
+        null,
+        null,
+        null
+    );
+
+    Assert.assertTrue(Arrays.equals(factory1.getCacheKey(), factory2.getCacheKey()));
+    Assert.assertFalse(Arrays.equals(factory1.getCacheKey(), factory3.getCacheKey()));
   }
 
   private void assertPostAggregatorSerde(PostAggregator agg) throws Exception

@@ -30,7 +30,7 @@ import com.google.common.collect.Maps;
 import com.metamx.common.UOE;
 import io.druid.data.input.MapBasedInputRow;
 import io.druid.data.input.impl.DimensionsSpec;
-import io.druid.granularity.QueryGranularity;
+import io.druid.granularity.QueryGranularities;
 import io.druid.query.aggregation.Aggregator;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.CountAggregatorFactory;
@@ -263,7 +263,7 @@ public class IndexIOTest
 
   final IncrementalIndex<Aggregator> incrementalIndex1 = new OnheapIncrementalIndex(
       new IncrementalIndexSchema.Builder().withMinTimestamp(DEFAULT_INTERVAL.getStart().getMillis())
-                                          .withQueryGranularity(QueryGranularity.NONE)
+                                          .withQueryGranularity(QueryGranularities.NONE)
                                           .withMetrics(
                                               new AggregatorFactory[]{
                                                   new CountAggregatorFactory(
@@ -273,7 +273,7 @@ public class IndexIOTest
                                           )
                                           .withDimensionsSpec(
                                               new DimensionsSpec(
-                                                  Arrays.asList("dim0", "dim1"),
+                                                  DimensionsSpec.getDefaultSchemas(Arrays.asList("dim0", "dim1")),
                                                   null,
                                                   null
                                               )
@@ -285,7 +285,7 @@ public class IndexIOTest
 
   final IncrementalIndex<Aggregator> incrementalIndex2 = new OnheapIncrementalIndex(
       new IncrementalIndexSchema.Builder().withMinTimestamp(DEFAULT_INTERVAL.getStart().getMillis())
-                                          .withQueryGranularity(QueryGranularity.NONE)
+                                          .withQueryGranularity(QueryGranularities.NONE)
                                           .withMetrics(
                                               new AggregatorFactory[]{
                                                   new CountAggregatorFactory(
@@ -295,7 +295,7 @@ public class IndexIOTest
                                           )
                                           .withDimensionsSpec(
                                               new DimensionsSpec(
-                                                  Arrays.asList("dim0", "dim1"),
+                                                  DimensionsSpec.getDefaultSchemas(Arrays.asList("dim0", "dim1")),
                                                   null,
                                                   null
                                               )

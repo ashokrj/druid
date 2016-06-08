@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -50,7 +49,7 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
   private static final Logger log = new Logger(OnheapIncrementalIndex.class);
 
   private final ConcurrentHashMap<Integer, Aggregator[]> aggregators = new ConcurrentHashMap<>();
-  private final ConcurrentNavigableMap<TimeAndDims, Integer> facts;
+  private final ConcurrentMap<TimeAndDims, Integer> facts;
   private final AtomicInteger indexIncrement = new AtomicInteger(0);
   protected final int maxRowCount;
   private volatile Map<String, ColumnSelectorFactory> selectors;
@@ -61,12 +60,18 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
       IncrementalIndexSchema incrementalIndexSchema,
       boolean deserializeComplexMetrics,
       boolean reportParseExceptions,
+      boolean sortFacts,
       int maxRowCount
   )
   {
-    super(incrementalIndexSchema, deserializeComplexMetrics, reportParseExceptions);
+    super(incrementalIndexSchema, deserializeComplexMetrics, reportParseExceptions, sortFacts);
     this.maxRowCount = maxRowCount;
-    this.facts = new ConcurrentSkipListMap<>(dimsComparator());
+
+    if (sortFacts) {
+      this.facts = new ConcurrentSkipListMap<>(dimsComparator());
+    } else {
+      this.facts = new ConcurrentHashMap<>();
+    }
   }
 
   public OnheapIncrementalIndex(
@@ -75,6 +80,7 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
       final AggregatorFactory[] metrics,
       boolean deserializeComplexMetrics,
       boolean reportParseExceptions,
+      boolean sortFacts,
       int maxRowCount
   )
   {
@@ -85,6 +91,7 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
                                             .build(),
         deserializeComplexMetrics,
         reportParseExceptions,
+        sortFacts,
         maxRowCount
     );
   }
@@ -101,6 +108,7 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
                                             .withQueryGranularity(gran)
                                             .withMetrics(metrics)
                                             .build(),
+        true,
         true,
         true,
         maxRowCount
@@ -113,11 +121,11 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
       int maxRowCount
   )
   {
-    this(incrementalIndexSchema, true, reportParseExceptions, maxRowCount);
+    this(incrementalIndexSchema, true, reportParseExceptions, true, maxRowCount);
   }
 
   @Override
-  public ConcurrentNavigableMap<TimeAndDims, Integer> getFacts()
+  public ConcurrentMap<TimeAndDims, Integer> getFacts()
   {
     return facts;
   }
@@ -162,20 +170,13 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
 
     if (null != priorIndex) {
       aggs = concurrentGet(priorIndex);
+      doAggregate(aggs, rowContainer, row, reportParseExceptions);
     } else {
       aggs = new Aggregator[metrics.length];
-
-      rowContainer.set(row);
-      for (int i = 0; i < metrics.length; i++) {
-        final AggregatorFactory agg = metrics[i];
-        aggs[i] = agg.factorize(
-            selectors.get(agg.getName())
-        );
-      }
-      rowContainer.set(null);
+      factorizeAggs(metrics, aggs, rowContainer, row);
+      doAggregate(aggs, rowContainer, row, reportParseExceptions);
 
       final Integer rowIndex = indexIncrement.getAndIncrement();
-
       concurrentSet(rowIndex, aggs);
 
       // Last ditch sanity checks
@@ -188,12 +189,38 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
       } else {
         // We lost a race
         aggs = concurrentGet(prev);
+        doAggregate(aggs, rowContainer, row, reportParseExceptions);
         // Free up the misfire
         concurrentRemove(rowIndex);
         // This is expected to occur ~80% of the time in the worst scenarios
       }
     }
 
+    return numEntries.get();
+  }
+
+  private void factorizeAggs(
+      AggregatorFactory[] metrics,
+      Aggregator[] aggs,
+      ThreadLocal<InputRow> rowContainer,
+      InputRow row
+  )
+  {
+    rowContainer.set(row);
+    for (int i = 0; i < metrics.length; i++) {
+      final AggregatorFactory agg = metrics[i];
+      aggs[i] = agg.factorize(selectors.get(agg.getName()));
+    }
+    rowContainer.set(null);
+  }
+
+  private void doAggregate(
+      Aggregator[] aggs,
+      ThreadLocal<InputRow> rowContainer,
+      InputRow row,
+      boolean reportParseExceptions
+  )
+  {
     rowContainer.set(row);
 
     for (Aggregator agg : aggs) {
@@ -213,9 +240,6 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
     }
 
     rowContainer.set(null);
-
-
-    return numEntries.get();
   }
 
   protected Aggregator[] concurrentGet(int offset)

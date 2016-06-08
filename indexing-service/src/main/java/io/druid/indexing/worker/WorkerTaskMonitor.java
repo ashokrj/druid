@@ -21,7 +21,6 @@ package io.druid.indexing.worker;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -98,7 +97,7 @@ public class WorkerTaskMonitor
    * started the task. When the task is complete, the worker node updates the status.
    */
   @LifecycleStart
-  public void start()
+  public void start() throws Exception
   {
     synchronized (lifecycleLock) {
       Preconditions.checkState(!started, "already started");
@@ -125,10 +124,13 @@ public class WorkerTaskMonitor
         log.info("Started WorkerTaskMonitor.");
         started = true;
       }
+      catch (InterruptedException e) {
+        throw e;
+      }
       catch (Exception e) {
         log.makeAlert(e, "Exception starting WorkerTaskMonitor")
            .emit();
-        throw Throwables.propagate(e);
+        throw e;
       }
     }
   }
@@ -141,6 +143,10 @@ public class WorkerTaskMonitor
 
         try {
           notice.handle();
+        }
+        catch (InterruptedException e) {
+          // Will be caught and logged in the outer try block
+          throw e;
         }
         catch (Exception e) {
           log.makeAlert(e, "Failed to handle notice")
@@ -166,7 +172,7 @@ public class WorkerTaskMonitor
     }
   }
 
-  private void cleanupStaleAnnouncements()
+  private void cleanupStaleAnnouncements() throws Exception
   {
     // cleanup any old running task announcements which are invalid after restart
     for (TaskAnnouncement announcement : workerCuratorCoordinator.getAnnouncements()) {
@@ -212,9 +218,21 @@ public class WorkerTaskMonitor
         new TaskRunnerListener()
         {
           @Override
+          public String getListenerId()
+          {
+            return "WorkerTaskMonitor";
+          }
+
+          @Override
           public void locationChanged(final String taskId, final TaskLocation newLocation)
           {
             notices.add(new LocationNotice(taskId, newLocation));
+          }
+
+          @Override
+          public void statusChanged(final String taskId, final TaskStatus status)
+          {
+            // do nothing
           }
         },
         MoreExecutors.sameThreadExecutor()
@@ -251,6 +269,7 @@ public class WorkerTaskMonitor
 
       try {
         started = false;
+        taskRunner.unregisterListener("WorkerTaskMonitor");
         exec.shutdownNow();
         pathChildrenCache.close();
         taskRunner.stop();
@@ -292,7 +311,7 @@ public class WorkerTaskMonitor
   {
     String getTaskId();
 
-    void handle();
+    void handle() throws Exception;
   }
 
   private class RunNotice implements Notice
@@ -311,7 +330,7 @@ public class WorkerTaskMonitor
     }
 
     @Override
-    public void handle()
+    public void handle() throws Exception
     {
       if (running.containsKey(task.getId())) {
         log.warn(
@@ -357,7 +376,7 @@ public class WorkerTaskMonitor
     }
 
     @Override
-    public void handle()
+    public void handle() throws Exception
     {
       final TaskDetails details = running.get(task.getId());
 
@@ -391,6 +410,9 @@ public class WorkerTaskMonitor
             status.getStatusCode()
         );
       }
+      catch (InterruptedException e) {
+        throw e;
+      }
       catch (Exception e) {
         log.makeAlert(e, "Failed to update task announcement")
            .addData("task", task.getId())
@@ -420,7 +442,7 @@ public class WorkerTaskMonitor
     }
 
     @Override
-    public void handle()
+    public void handle() throws InterruptedException
     {
       final TaskDetails details = running.get(taskId);
 
@@ -441,6 +463,9 @@ public class WorkerTaskMonitor
                   details.location
               )
           );
+        }
+        catch (InterruptedException e) {
+          throw e;
         }
         catch (Exception e) {
           log.makeAlert(e, "Failed to update task announcement")

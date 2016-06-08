@@ -36,7 +36,7 @@ import io.druid.data.input.impl.DimensionsSpec;
 import io.druid.data.input.impl.JSONParseSpec;
 import io.druid.data.input.impl.StringInputRowParser;
 import io.druid.data.input.impl.TimestampSpec;
-import io.druid.granularity.QueryGranularity;
+import io.druid.granularity.QueryGranularities;
 import io.druid.jackson.DefaultObjectMapper;
 import io.druid.query.DefaultQueryRunnerFactoryConglomerate;
 import io.druid.query.Query;
@@ -141,7 +141,7 @@ public class RealtimePlumberSchoolTest
             Map.class
         ),
         new AggregatorFactory[]{new CountAggregatorFactory("rows")},
-        new UniformGranularitySpec(Granularity.HOUR, QueryGranularity.NONE, null),
+        new UniformGranularitySpec(Granularity.HOUR, QueryGranularities.NONE, null),
         jsonMapper
     );
 
@@ -157,7 +157,7 @@ public class RealtimePlumberSchoolTest
             Map.class
         ),
         new AggregatorFactory[]{new CountAggregatorFactory("rows")},
-        new UniformGranularitySpec(Granularity.YEAR, QueryGranularity.NONE, null),
+        new UniformGranularitySpec(Granularity.YEAR, QueryGranularities.NONE, null),
         jsonMapper
     );
 
@@ -257,8 +257,10 @@ public class RealtimePlumberSchoolTest
                new Sink(
                    new Interval(0, TimeUnit.HOURS.toMillis(1)),
                    schema,
-                   tuningConfig,
-                   new DateTime("2014-12-01T12:34:56.789").toString()
+                   tuningConfig.getShardSpec(),
+                   new DateTime("2014-12-01T12:34:56.789").toString(),
+                   tuningConfig.getMaxRowsInMemory(),
+                   tuningConfig.isReportParseExceptions()
                )
            );
     Assert.assertNull(plumber.startJob());
@@ -302,8 +304,10 @@ public class RealtimePlumberSchoolTest
                new Sink(
                    new Interval(0, TimeUnit.HOURS.toMillis(1)),
                    schema,
-                   tuningConfig,
-                   new DateTime("2014-12-01T12:34:56.789").toString()
+                   tuningConfig.getShardSpec(),
+                   new DateTime("2014-12-01T12:34:56.789").toString(),
+                   tuningConfig.getMaxRowsInMemory(),
+                   tuningConfig.isReportParseExceptions()
                )
            );
     plumber.startJob();
@@ -311,7 +315,7 @@ public class RealtimePlumberSchoolTest
     EasyMock.expect(row.getTimestampFromEpoch()).andReturn(0L);
     EasyMock.expect(row.getDimensions()).andReturn(new ArrayList<String>());
     EasyMock.replay(row);
-    plumber.add(row, Committers.supplierOf(Committers.nil()));
+    plumber.add(row, Suppliers.ofInstance(Committers.nil()));
 
     final CountDownLatch doneSignal = new CountDownLatch(1);
 
@@ -357,8 +361,10 @@ public class RealtimePlumberSchoolTest
                 new Sink(
                     testInterval,
                     schema2,
-                    tuningConfig,
-                    new DateTime("2014-12-01T12:34:56.789").toString()
+                    tuningConfig.getShardSpec(),
+                    new DateTime("2014-12-01T12:34:56.789").toString(),
+                    tuningConfig.getMaxRowsInMemory(),
+                    tuningConfig.isReportParseExceptions()
                 )
             );
     Assert.assertNull(plumber2.startJob());

@@ -41,6 +41,7 @@ import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import com.metamx.common.guava.Yielder;
 import com.metamx.common.guava.YieldingAccumulator;
+
 import io.druid.collections.StupidPool;
 import io.druid.data.input.Row;
 import io.druid.data.input.impl.InputRowParser;
@@ -63,16 +64,17 @@ import io.druid.query.groupby.GroupByQueryRunnerFactory;
 import io.druid.query.select.SelectQueryEngine;
 import io.druid.query.select.SelectQueryQueryToolChest;
 import io.druid.query.select.SelectQueryRunnerFactory;
+import io.druid.segment.AbstractSegment;
 import io.druid.segment.IndexIO;
 import io.druid.segment.IndexMerger;
 import io.druid.segment.IndexSpec;
 import io.druid.segment.QueryableIndex;
 import io.druid.segment.QueryableIndexSegment;
 import io.druid.segment.Segment;
-import io.druid.segment.TestHelper;
+import io.druid.segment.column.ColumnConfig;
 import io.druid.segment.incremental.IncrementalIndex;
-import io.druid.segment.incremental.IndexSizeExceededException;
 import io.druid.segment.incremental.OnheapIncrementalIndex;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.LineIterator;
 import org.junit.rules.TemporaryFolder;
@@ -165,10 +167,22 @@ public class AggregationTestHelper
         pool
     );
 
+    IndexIO indexIO = new IndexIO(
+        mapper,
+        new ColumnConfig()
+        {
+          @Override
+          public int columnCacheSizeBytes()
+          {
+            return 0;
+          }
+        }
+    );
+
     return new AggregationTestHelper(
         mapper,
-        TestHelper.getTestIndexMerger(),
-        TestHelper.getTestIndexIO(),
+        new IndexMerger(mapper, indexIO),
+        indexIO,
         toolchest,
         factory,
         tempFolder,
@@ -197,10 +211,22 @@ public class AggregationTestHelper
         QueryRunnerTestHelper.NOOP_QUERYWATCHER
     );
 
+    IndexIO indexIO = new IndexIO(
+        mapper,
+        new ColumnConfig()
+        {
+          @Override
+          public int columnCacheSizeBytes()
+          {
+            return 0;
+          }
+        }
+    );
+
     return new AggregationTestHelper(
         mapper,
-        TestHelper.getTestIndexMerger(),
-        TestHelper.getTestIndexIO(),
+        new IndexMerger(mapper, indexIO),
+        indexIO,
         toolchest,
         factory,
         tempFolder,
@@ -311,7 +337,7 @@ public class AggregationTestHelper
     List<File> toMerge = new ArrayList<>();
 
     try {
-      index = new OnheapIncrementalIndex(minTimestamp, gran, metrics, deserializeComplexMetrics, true, maxRowCount);
+      index = new OnheapIncrementalIndex(minTimestamp, gran, metrics, deserializeComplexMetrics, true, true, maxRowCount);
       while (rows.hasNext()) {
         Object row = rows.next();
         if (!index.canAppendRow()) {
@@ -319,7 +345,7 @@ public class AggregationTestHelper
           toMerge.add(tmp);
           indexMerger.persist(index, tmp, new IndexSpec());
           index.close();
-          index = new OnheapIncrementalIndex(minTimestamp, gran, metrics, deserializeComplexMetrics, true, maxRowCount);
+          index = new OnheapIncrementalIndex(minTimestamp, gran, metrics, deserializeComplexMetrics, true, true, maxRowCount);
         }
         if (row instanceof String && parser instanceof StringInputRowParser) {
           //Note: this is required because StringInputRowParser is InputRowParser<ByteBuffer> as opposed to
